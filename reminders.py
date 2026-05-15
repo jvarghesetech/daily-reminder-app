@@ -124,6 +124,41 @@ def cmd_list(filter_category=None):
     print()
 
 
+def cmd_edit(index, field, value):
+    reminders = load_reminders()
+    if index < 1 or index > len(reminders):
+        print(f"  No reminder with index {index}.")
+        sys.exit(1)
+    r = reminders[index - 1]
+    if field == "name":
+        r["name"] = value
+    elif field == "time":
+        try:
+            datetime.strptime(value, "%H:%M")
+        except ValueError:
+            print(f"  Invalid time '{value}'. Use HH:MM.")
+            sys.exit(1)
+        r["time"] = value
+    elif field == "repeat":
+        if value not in REPEAT_OPTIONS:
+            print(f"  Invalid repeat '{value}'. Choose from: {', '.join(REPEAT_OPTIONS)}")
+            sys.exit(1)
+        r["repeat"] = value
+    elif field == "category":
+        r["category"] = value
+    elif field == "sound":
+        if value not in SOUNDS:
+            print(f"  Invalid sound '{value}'. Run 'python reminders.py sounds' to see options.")
+            sys.exit(1)
+        r["sound"] = value
+    else:
+        print(f"  Unknown field '{field}'. Choose from: name, time, repeat, category, sound")
+        sys.exit(1)
+    reminders[index - 1] = r
+    save_reminders(reminders)
+    print(f"  Updated reminder #{index}: {field} = {value}")
+
+
 def cmd_delete(index):
     reminders = load_reminders()
     if index < 1 or index > len(reminders):
@@ -208,6 +243,7 @@ def print_help():
                                                   sound: Glass (default), Ping, Basso, Hero, etc.
   python reminders.py sounds                      List all available sounds
   python reminders.py list [category]             List all reminders (or filter by category)
+  python reminders.py edit <number> <field> <value>  Edit a reminder field (name, time, repeat, category, sound)
   python reminders.py delete <number>             Delete a reminder by number
   python reminders.py snooze <number> [minutes]  Snooze a reminder (default: 10 mins)
   python reminders.py export <file.json>          Export reminders to a file
@@ -237,6 +273,12 @@ def main():
     elif command == "list":
         category = args[1] if len(args) > 1 else None
         cmd_list(category)
+
+    elif command == "edit":
+        if len(args) < 4 or not args[1].isdigit():
+            print("  Usage: python reminders.py edit <number> <field> <value>")
+            sys.exit(1)
+        cmd_edit(int(args[1]), args[2], args[3])
 
     elif command == "delete":
         if len(args) < 2 or not args[1].isdigit():
