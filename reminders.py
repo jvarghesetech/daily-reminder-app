@@ -36,9 +36,16 @@ def save_snoozed(snoozed):
         json.dump(snoozed, f, indent=2)
 
 
-def notify(title, message):
-    script = f'display notification "{message}" with title "{title}" sound name "Glass"'
+def notify(title, message, sound="Glass"):
+    script = f'display notification "{message}" with title "{title}" sound name "{sound}"'
     subprocess.run(["osascript", "-e", script])
+
+
+def cmd_sounds():
+    print("\n  Available sounds:")
+    for s in SOUNDS:
+        print(f"    - {s}")
+    print()
 
 
 def cmd_snooze(index, minutes=10):
@@ -56,6 +63,7 @@ def cmd_snooze(index, minutes=10):
 
 REPEAT_OPTIONS = ["daily", "weekdays", "weekends", "mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 DAY_MAP = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
+SOUNDS = ["Glass", "Basso", "Blow", "Bottle", "Frog", "Funk", "Hero", "Morse", "Ping", "Pop", "Purr", "Sosumi", "Submarine", "Tink"]
 
 
 def reminder_active_today(r):
@@ -72,7 +80,7 @@ def reminder_active_today(r):
     return True
 
 
-def cmd_add(name, time_str, repeat="daily", category="general"):
+def cmd_add(name, time_str, repeat="daily", category="general", sound="Glass"):
     try:
         datetime.strptime(time_str, "%H:%M")
     except ValueError:
@@ -83,10 +91,14 @@ def cmd_add(name, time_str, repeat="daily", category="general"):
         print(f"  Invalid repeat '{repeat}'. Choose from: {', '.join(REPEAT_OPTIONS)}")
         sys.exit(1)
 
+    if sound not in SOUNDS:
+        print(f"  Invalid sound '{sound}'. Run 'python reminders.py sounds' to see options.")
+        sys.exit(1)
+
     reminders = load_reminders()
-    reminders.append({"name": name, "time": time_str, "repeat": repeat, "category": category})
+    reminders.append({"name": name, "time": time_str, "repeat": repeat, "category": category, "sound": sound})
     save_reminders(reminders)
-    print(f"  Added: '{name}' at {time_str} ({repeat}) [{category}]")
+    print(f"  Added: '{name}' at {time_str} ({repeat}) [{category}] sound: {sound}")
 
 
 def cmd_list(filter_category=None):
@@ -136,7 +148,7 @@ def cmd_run():
             key = f"{date_key}-{r['name']}-{r['time']}"
             if r["time"] == now and key not in fired_today and reminder_active_today(r):
                 print(f"  REMINDER: {r['name']} ({r['time']})")
-                notify("Daily Reminder", r["name"])
+                notify("Daily Reminder", r["name"], r.get("sound", "Glass"))
                 fired_today.add(key)
 
         # Check snoozed reminders
@@ -165,10 +177,12 @@ def print_help():
     print("""
   Daily Reminder App
   ------------------
-  python reminders.py add "name" HH:MM [repeat] [category]   Add a reminder
+  python reminders.py add "name" HH:MM [repeat] [category] [sound]   Add a reminder
                                                   repeat: daily (default), weekdays, weekends,
                                                           mon, tue, wed, thu, fri, sat, sun
                                                   category: health, work, personal, general (default)
+                                                  sound: Glass (default), Ping, Basso, Hero, etc.
+  python reminders.py sounds                      List all available sounds
   python reminders.py list [category]              List all reminders (or filter by category)
   python reminders.py delete <number>              Delete a reminder by number
   python reminders.py snooze <number> [minutes]   Snooze a reminder (default: 10 mins)
@@ -191,7 +205,8 @@ def main():
             sys.exit(1)
         repeat = args[3] if len(args) > 3 else "daily"
         category = args[4] if len(args) > 4 else "general"
-        cmd_add(args[1], args[2], repeat, category)
+        sound = args[5] if len(args) > 5 else "Glass"
+        cmd_add(args[1], args[2], repeat, category, sound)
 
     elif command == "list":
         category = args[1] if len(args) > 1 else None
@@ -209,6 +224,9 @@ def main():
             sys.exit(1)
         minutes = int(args[2]) if len(args) > 2 and args[2].isdigit() else 10
         cmd_snooze(int(args[1]), minutes)
+
+    elif command == "sounds":
+        cmd_sounds()
 
     elif command == "run":
         try:
