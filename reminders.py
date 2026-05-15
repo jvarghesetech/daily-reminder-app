@@ -173,6 +173,30 @@ def cmd_run():
         time.sleep(30)
 
 
+def cmd_export(filepath):
+    reminders = load_reminders()
+    path = Path(filepath)
+    with open(path, "w") as f:
+        json.dump(reminders, f, indent=2)
+    print(f"  Exported {len(reminders)} reminder(s) to {path.resolve()}")
+
+
+def cmd_import(filepath):
+    path = Path(filepath)
+    if not path.exists():
+        print(f"  File not found: {filepath}")
+        sys.exit(1)
+    with open(path) as f:
+        imported = json.load(f)
+    if not isinstance(imported, list):
+        print("  Invalid format. File must contain a JSON array of reminders.")
+        sys.exit(1)
+    existing = load_reminders()
+    existing.extend(imported)
+    save_reminders(existing)
+    print(f"  Imported {len(imported)} reminder(s) from {path.resolve()}")
+
+
 def print_help():
     print("""
   Daily Reminder App
@@ -183,10 +207,12 @@ def print_help():
                                                   category: health, work, personal, general (default)
                                                   sound: Glass (default), Ping, Basso, Hero, etc.
   python reminders.py sounds                      List all available sounds
-  python reminders.py list [category]              List all reminders (or filter by category)
-  python reminders.py delete <number>              Delete a reminder by number
-  python reminders.py snooze <number> [minutes]   Snooze a reminder (default: 10 mins)
-  python reminders.py run                          Start the notification daemon
+  python reminders.py list [category]             List all reminders (or filter by category)
+  python reminders.py delete <number>             Delete a reminder by number
+  python reminders.py snooze <number> [minutes]  Snooze a reminder (default: 10 mins)
+  python reminders.py export <file.json>          Export reminders to a file
+  python reminders.py import <file.json>          Import reminders from a file
+  python reminders.py run                         Start the notification daemon
 """)
 
 
@@ -227,6 +253,18 @@ def main():
 
     elif command == "sounds":
         cmd_sounds()
+
+    elif command == "export":
+        if len(args) < 2:
+            print("  Usage: python reminders.py export <file.json>")
+            sys.exit(1)
+        cmd_export(args[1])
+
+    elif command == "import":
+        if len(args) < 2:
+            print("  Usage: python reminders.py import <file.json>")
+            sys.exit(1)
+        cmd_import(args[1])
 
     elif command == "run":
         try:
