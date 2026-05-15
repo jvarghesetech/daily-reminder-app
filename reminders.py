@@ -170,6 +170,23 @@ def cmd_list(filter_category=None):
     print()
 
 
+def cmd_search(keyword):
+    reminders = load_reminders()
+    keyword_lower = keyword.lower()
+    matches = [(i+1, r) for i, r in enumerate(reminders) if keyword_lower in r["name"].lower()]
+    if not matches:
+        print(f"  No reminders matching '{keyword}'.")
+        return
+    print(f"\n  Search results for '{keyword}':")
+    print(f"\n  {'#':<4} {'Time':<8} {'Priority':<9} {'Category':<12} Reminder")
+    print("  " + "-" * 52)
+    for idx, r in matches:
+        priority = PRIORITY_LABEL.get(r.get("priority", "medium"), "med  ")
+        category = r.get("category", "general")
+        print(f"  {idx:<4} {r['time']:<8} {priority:<9} {category:<12} {r['name']}")
+    print()
+
+
 def cmd_pause(index):
     reminders = load_reminders()
     if index < 1 or index > len(reminders):
@@ -327,6 +344,7 @@ def print_help():
   python reminders.py resume <number>             Resume a paused reminder
   python reminders.py delete <number>             Delete a reminder by number
   python reminders.py snooze <number> [minutes]  Snooze a reminder (default: 10 mins)
+  python reminders.py search <keyword>            Search reminders by name
   python reminders.py log [YYYY-MM-DD]            Show history of fired reminders
   python reminders.py export <file.json>          Export reminders to a file
   python reminders.py import <file.json>          Import reminders from a file
@@ -391,6 +409,12 @@ def main():
 
     elif command == "sounds":
         cmd_sounds()
+
+    elif command == "search":
+        if len(args) < 2:
+            print("  Usage: python reminders.py search <keyword>")
+            sys.exit(1)
+        cmd_search(args[1])
 
     elif command == "log":
         date_filter = args[1] if len(args) > 1 else None
