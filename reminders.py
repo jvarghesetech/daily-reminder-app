@@ -146,13 +146,34 @@ def cmd_list(filter_category=None):
         print(f"  No reminders in category '{filter_category}'.")
         return
 
-    print(f"\n  {'#':<4} {'Time':<8} {'Repeat':<10} {'Category':<12} Reminder")
-    print("  " + "-" * 56)
+    print(f"\n  {'#':<4} {'Time':<8} {'Repeat':<10} {'Category':<12} {'Status':<8} Reminder")
+    print("  " + "-" * 64)
     for idx, r in reminders_filtered:
         repeat = r.get("repeat", "daily")
         category = r.get("category", "general")
-        print(f"  {idx:<4} {r['time']:<8} {repeat:<10} {category:<12} {r['name']}")
+        status = "PAUSED" if r.get("paused") else "on"
+        print(f"  {idx:<4} {r['time']:<8} {repeat:<10} {category:<12} {status:<8} {r['name']}")
     print()
+
+
+def cmd_pause(index):
+    reminders = load_reminders()
+    if index < 1 or index > len(reminders):
+        print(f"  No reminder with index {index}.")
+        sys.exit(1)
+    reminders[index - 1]["paused"] = True
+    save_reminders(reminders)
+    print(f"  Paused: '{reminders[index - 1]['name']}' — it won't fire until resumed.")
+
+
+def cmd_resume(index):
+    reminders = load_reminders()
+    if index < 1 or index > len(reminders):
+        print(f"  No reminder with index {index}.")
+        sys.exit(1)
+    reminders[index - 1]["paused"] = False
+    save_reminders(reminders)
+    print(f"  Resumed: '{reminders[index - 1]['name']}' — it will fire again.")
 
 
 def cmd_edit(index, field, value):
@@ -212,7 +233,7 @@ def cmd_run():
         reminders = load_reminders()
         for r in reminders:
             key = f"{date_key}-{r['name']}-{r['time']}"
-            if r["time"] == now and key not in fired_today and reminder_active_today(r):
+            if r["time"] == now and key not in fired_today and reminder_active_today(r) and not r.get("paused"):
                 print(f"  REMINDER: {r['name']} ({r['time']})")
                 notify("Daily Reminder", r["name"], r.get("sound", "Glass"))
                 log_fired(r["name"], r["time"])
@@ -276,6 +297,8 @@ def print_help():
   python reminders.py sounds                      List all available sounds
   python reminders.py list [category]             List all reminders (or filter by category)
   python reminders.py edit <number> <field> <value>  Edit a reminder field (name, time, repeat, category, sound)
+  python reminders.py pause <number>              Pause a reminder (won't fire until resumed)
+  python reminders.py resume <number>             Resume a paused reminder
   python reminders.py delete <number>             Delete a reminder by number
   python reminders.py snooze <number> [minutes]  Snooze a reminder (default: 10 mins)
   python reminders.py log [YYYY-MM-DD]            Show history of fired reminders
@@ -306,6 +329,18 @@ def main():
     elif command == "list":
         category = args[1] if len(args) > 1 else None
         cmd_list(category)
+
+    elif command == "pause":
+        if len(args) < 2 or not args[1].isdigit():
+            print("  Usage: python reminders.py pause <number>")
+            sys.exit(1)
+        cmd_pause(int(args[1]))
+
+    elif command == "resume":
+        if len(args) < 2 or not args[1].isdigit():
+            print("  Usage: python reminders.py resume <number>")
+            sys.exit(1)
+        cmd_resume(int(args[1]))
 
     elif command == "edit":
         if len(args) < 4 or not args[1].isdigit():
