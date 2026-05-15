@@ -170,6 +170,41 @@ def cmd_list(filter_category=None):
     print()
 
 
+def cmd_next():
+    reminders = load_reminders()
+    now = datetime.now()
+    now_minutes = now.hour * 60 + now.minute
+
+    upcoming = []
+    for r in reminders:
+        if r.get("paused"):
+            continue
+        if not reminder_active_today(r):
+            continue
+        h, m = map(int, r["time"].split(":"))
+        reminder_minutes = h * 60 + m
+        diff = reminder_minutes - now_minutes
+        if diff > 0:
+            upcoming.append((diff, r))
+
+    if not upcoming:
+        print("  No more reminders for today.")
+        return
+
+    upcoming.sort(key=lambda x: x[0])
+    diff, r = upcoming[0]
+    hours, mins = divmod(diff, 60)
+    time_str = f"{hours}h {mins}m" if hours else f"{mins}m"
+    print(f"\n  Next up: '{r['name']}' at {r['time']} — in {time_str}")
+    if len(upcoming) > 1:
+        print(f"\n  Coming up today:")
+        for d, rem in upcoming[:5]:
+            h2, m2 = divmod(d, 60)
+            t = f"{h2}h {m2}m" if h2 else f"{m2}m"
+            print(f"    {rem['time']}  {rem['name']} (in {t})")
+    print()
+
+
 def cmd_search(keyword):
     reminders = load_reminders()
     keyword_lower = keyword.lower()
@@ -344,6 +379,7 @@ def print_help():
   python reminders.py resume <number>             Resume a paused reminder
   python reminders.py delete <number>             Delete a reminder by number
   python reminders.py snooze <number> [minutes]  Snooze a reminder (default: 10 mins)
+  python reminders.py next                        Show the next reminder and what's coming today
   python reminders.py search <keyword>            Search reminders by name
   python reminders.py log [YYYY-MM-DD]            Show history of fired reminders
   python reminders.py export <file.json>          Export reminders to a file
@@ -409,6 +445,9 @@ def main():
 
     elif command == "sounds":
         cmd_sounds()
+
+    elif command == "next":
+        cmd_next()
 
     elif command == "search":
         if len(args) < 2:
