@@ -45,3 +45,4 @@ No external dependencies needed.
 ## Data
 
 Reminders are stored in `~/.daily_reminders.json`.
+
