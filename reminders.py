@@ -10,6 +10,7 @@ from pathlib import Path
 
 DATA_FILE = Path.home() / ".daily_reminders.json"
 SNOOZE_FILE = Path.home() / ".daily_reminders_snooze.json"
+LOG_FILE = Path.home() / ".daily_reminders_log.json"
 
 
 def load_reminders():
@@ -34,6 +35,36 @@ def load_snoozed():
 def save_snoozed(snoozed):
     with open(SNOOZE_FILE, "w") as f:
         json.dump(snoozed, f, indent=2)
+
+
+def log_fired(name, time_str):
+    log = []
+    if LOG_FILE.exists():
+        with open(LOG_FILE) as f:
+            log = json.load(f)
+    log.append({"name": name, "time": time_str, "fired_at": datetime.now().strftime("%Y-%m-%d %H:%M")})
+    # Keep last 100 entries
+    log = log[-100:]
+    with open(LOG_FILE, "w") as f:
+        json.dump(log, f, indent=2)
+
+
+def cmd_log(date_filter=None):
+    if not LOG_FILE.exists():
+        print("  No reminders have fired yet.")
+        return
+    with open(LOG_FILE) as f:
+        log = json.load(f)
+    if date_filter:
+        log = [e for e in log if e["fired_at"].startswith(date_filter)]
+    if not log:
+        print(f"  No reminders fired{' on ' + date_filter if date_filter else ''}.")
+        return
+    print(f"\n  {'Fired At':<18} {'Time':<8} Reminder")
+    print("  " + "-" * 44)
+    for e in log:
+        print(f"  {e['fired_at']:<18} {e['time']:<8} {e['name']}")
+    print()
 
 
 def notify(title, message, sound="Glass"):
@@ -184,6 +215,7 @@ def cmd_run():
             if r["time"] == now and key not in fired_today and reminder_active_today(r):
                 print(f"  REMINDER: {r['name']} ({r['time']})")
                 notify("Daily Reminder", r["name"], r.get("sound", "Glass"))
+                log_fired(r["name"], r["time"])
                 fired_today.add(key)
 
         # Check snoozed reminders
@@ -246,6 +278,7 @@ def print_help():
   python reminders.py edit <number> <field> <value>  Edit a reminder field (name, time, repeat, category, sound)
   python reminders.py delete <number>             Delete a reminder by number
   python reminders.py snooze <number> [minutes]  Snooze a reminder (default: 10 mins)
+  python reminders.py log [YYYY-MM-DD]            Show history of fired reminders
   python reminders.py export <file.json>          Export reminders to a file
   python reminders.py import <file.json>          Import reminders from a file
   python reminders.py run                         Start the notification daemon
@@ -295,6 +328,10 @@ def main():
 
     elif command == "sounds":
         cmd_sounds()
+
+    elif command == "log":
+        date_filter = args[1] if len(args) > 1 else None
+        cmd_log(date_filter)
 
     elif command == "export":
         if len(args) < 2:
