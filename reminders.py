@@ -114,7 +114,7 @@ def reminder_active_today(r):
     return True
 
 
-def cmd_add(name, time_str, repeat="daily", category="general", sound="Glass", priority="medium"):
+def cmd_add(name, time_str, repeat="daily", category="general", sound="Glass", priority="medium", count=None):
     try:
         datetime.strptime(time_str, "%H:%M")
     except ValueError:
@@ -133,10 +133,15 @@ def cmd_add(name, time_str, repeat="daily", category="general", sound="Glass", p
         print(f"  Invalid priority '{priority}'. Choose from: low, medium, high")
         sys.exit(1)
 
+    entry = {"name": name, "time": time_str, "repeat": repeat, "category": category, "sound": sound, "priority": priority}
+    if count is not None:
+        entry["count"] = count
+        entry["fired_count"] = 0
     reminders = load_reminders()
-    reminders.append({"name": name, "time": time_str, "repeat": repeat, "category": category, "sound": sound, "priority": priority})
+    reminders.append(entry)
     save_reminders(reminders)
-    print(f"  Added: '{name}' at {time_str} ({repeat}) [{category}] priority: {priority}")
+    count_str = f" (fires {count}x)" if count else ""
+    print(f"  Added: '{name}' at {time_str} ({repeat}) [{category}] priority: {priority}{count_str}")
 
 
 def cmd_list(filter_category=None):
@@ -243,10 +248,20 @@ def cmd_run():
         for r in reminders:
             key = f"{date_key}-{r['name']}-{r['time']}"
             if r["time"] == now and key not in fired_today and reminder_active_today(r) and not r.get("paused"):
+                # Check recurring count limit
+                if "count" in r and r.get("fired_count", 0) >= r["count"]:
+                    continue
                 print(f"  REMINDER: {r['name']} ({r['time']})")
                 notify("Daily Reminder", r["name"], r.get("sound", "Glass"))
                 log_fired(r["name"], r["time"])
                 fired_today.add(key)
+                # Update fired count and auto-delete if limit reached
+                if "count" in r:
+                    r["fired_count"] = r.get("fired_count", 0) + 1
+                    if r["fired_count"] >= r["count"]:
+                        print(f"  '{r['name']}' has fired {r['count']}x — auto-removing.")
+                        reminders = [x for x in reminders if x is not r]
+                        save_reminders(reminders)
 
         # Check snoozed reminders
         snoozed = load_snoozed()
@@ -304,6 +319,7 @@ def print_help():
                                                   category: health, work, personal, general (default)
                                                   sound: Glass (default), Ping, Basso, Hero, etc.
                                                   priority: low, medium (default), high
+                                                  count: number of times to fire before auto-deleting (optional)
   python reminders.py sounds                      List all available sounds
   python reminders.py list [category]             List all reminders (or filter by category)
   python reminders.py edit <number> <field> <value>  Edit a reminder field (name, time, repeat, category, sound)
@@ -335,7 +351,8 @@ def main():
         category = args[4] if len(args) > 4 else "general"
         sound = args[5] if len(args) > 5 else "Glass"
         priority = args[6] if len(args) > 6 else "medium"
-        cmd_add(args[1], args[2], repeat, category, sound, priority)
+        count = int(args[7]) if len(args) > 7 and args[7].isdigit() else None
+        cmd_add(args[1], args[2], repeat, category, sound, priority, count)
 
     elif command == "list":
         category = args[1] if len(args) > 1 else None
