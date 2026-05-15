@@ -72,7 +72,7 @@ def reminder_active_today(r):
     return True
 
 
-def cmd_add(name, time_str, repeat="daily"):
+def cmd_add(name, time_str, repeat="daily", category="general"):
     try:
         datetime.strptime(time_str, "%H:%M")
     except ValueError:
@@ -84,21 +84,31 @@ def cmd_add(name, time_str, repeat="daily"):
         sys.exit(1)
 
     reminders = load_reminders()
-    reminders.append({"name": name, "time": time_str, "repeat": repeat})
+    reminders.append({"name": name, "time": time_str, "repeat": repeat, "category": category})
     save_reminders(reminders)
-    print(f"  Added: '{name}' at {time_str} ({repeat})")
+    print(f"  Added: '{name}' at {time_str} ({repeat}) [{category}]")
 
 
-def cmd_list():
+def cmd_list(filter_category=None):
     reminders = load_reminders()
     if not reminders:
         print("  No reminders set. Add one with: python reminders.py add \"name\" HH:MM")
         return
-    print(f"\n  {'#':<4} {'Time':<8} {'Repeat':<10} Reminder")
-    print("  " + "-" * 44)
-    for i, r in enumerate(reminders, 1):
+    if filter_category:
+        reminders_filtered = [(i+1, r) for i, r in enumerate(reminders) if r.get("category", "general") == filter_category]
+    else:
+        reminders_filtered = [(i+1, r) for i, r in enumerate(reminders)]
+
+    if not reminders_filtered:
+        print(f"  No reminders in category '{filter_category}'.")
+        return
+
+    print(f"\n  {'#':<4} {'Time':<8} {'Repeat':<10} {'Category':<12} Reminder")
+    print("  " + "-" * 56)
+    for idx, r in reminders_filtered:
         repeat = r.get("repeat", "daily")
-        print(f"  {i:<4} {r['time']:<8} {repeat:<10} {r['name']}")
+        category = r.get("category", "general")
+        print(f"  {idx:<4} {r['time']:<8} {repeat:<10} {category:<12} {r['name']}")
     print()
 
 
@@ -155,10 +165,11 @@ def print_help():
     print("""
   Daily Reminder App
   ------------------
-  python reminders.py add "Reminder name" HH:MM [repeat]   Add a reminder
+  python reminders.py add "name" HH:MM [repeat] [category]   Add a reminder
                                                   repeat: daily (default), weekdays, weekends,
                                                           mon, tue, wed, thu, fri, sat, sun
-  python reminders.py list                         List all reminders
+                                                  category: health, work, personal, general (default)
+  python reminders.py list [category]              List all reminders (or filter by category)
   python reminders.py delete <number>              Delete a reminder by number
   python reminders.py snooze <number> [minutes]   Snooze a reminder (default: 10 mins)
   python reminders.py run                          Start the notification daemon
@@ -179,10 +190,12 @@ def main():
             print("  Usage: python reminders.py add \"Reminder name\" HH:MM [repeat]")
             sys.exit(1)
         repeat = args[3] if len(args) > 3 else "daily"
-        cmd_add(args[1], args[2], repeat)
+        category = args[4] if len(args) > 4 else "general"
+        cmd_add(args[1], args[2], repeat, category)
 
     elif command == "list":
-        cmd_list()
+        category = args[1] if len(args) > 1 else None
+        cmd_list(category)
 
     elif command == "delete":
         if len(args) < 2 or not args[1].isdigit():
