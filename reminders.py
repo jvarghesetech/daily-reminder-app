@@ -95,6 +95,9 @@ def cmd_snooze(index, minutes=10):
 REPEAT_OPTIONS = ["daily", "weekdays", "weekends", "mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 DAY_MAP = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
 SOUNDS = ["Glass", "Basso", "Blow", "Bottle", "Frog", "Funk", "Hero", "Morse", "Ping", "Pop", "Purr", "Sosumi", "Submarine", "Tink"]
+PRIORITIES = ["low", "medium", "high"]
+PRIORITY_LABEL = {"low": "low  ", "medium": "med  ", "high": "HIGH "}
+PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 
 def reminder_active_today(r):
@@ -111,7 +114,7 @@ def reminder_active_today(r):
     return True
 
 
-def cmd_add(name, time_str, repeat="daily", category="general", sound="Glass"):
+def cmd_add(name, time_str, repeat="daily", category="general", sound="Glass", priority="medium"):
     try:
         datetime.strptime(time_str, "%H:%M")
     except ValueError:
@@ -126,10 +129,14 @@ def cmd_add(name, time_str, repeat="daily", category="general", sound="Glass"):
         print(f"  Invalid sound '{sound}'. Run 'python reminders.py sounds' to see options.")
         sys.exit(1)
 
+    if priority not in PRIORITIES:
+        print(f"  Invalid priority '{priority}'. Choose from: low, medium, high")
+        sys.exit(1)
+
     reminders = load_reminders()
-    reminders.append({"name": name, "time": time_str, "repeat": repeat, "category": category, "sound": sound})
+    reminders.append({"name": name, "time": time_str, "repeat": repeat, "category": category, "sound": sound, "priority": priority})
     save_reminders(reminders)
-    print(f"  Added: '{name}' at {time_str} ({repeat}) [{category}] sound: {sound}")
+    print(f"  Added: '{name}' at {time_str} ({repeat}) [{category}] priority: {priority}")
 
 
 def cmd_list(filter_category=None):
@@ -146,13 +153,15 @@ def cmd_list(filter_category=None):
         print(f"  No reminders in category '{filter_category}'.")
         return
 
-    print(f"\n  {'#':<4} {'Time':<8} {'Repeat':<10} {'Category':<12} {'Status':<8} Reminder")
-    print("  " + "-" * 64)
+    reminders_filtered.sort(key=lambda x: PRIORITY_ORDER.get(x[1].get("priority", "medium"), 1))
+    print(f"\n  {'#':<4} {'Time':<8} {'Priority':<9} {'Repeat':<10} {'Category':<12} {'Status':<8} Reminder")
+    print("  " + "-" * 72)
     for idx, r in reminders_filtered:
         repeat = r.get("repeat", "daily")
         category = r.get("category", "general")
         status = "PAUSED" if r.get("paused") else "on"
-        print(f"  {idx:<4} {r['time']:<8} {repeat:<10} {category:<12} {status:<8} {r['name']}")
+        priority = PRIORITY_LABEL.get(r.get("priority", "medium"), "med  ")
+        print(f"  {idx:<4} {r['time']:<8} {priority:<9} {repeat:<10} {category:<12} {status:<8} {r['name']}")
     print()
 
 
@@ -294,6 +303,7 @@ def print_help():
                                                           mon, tue, wed, thu, fri, sat, sun
                                                   category: health, work, personal, general (default)
                                                   sound: Glass (default), Ping, Basso, Hero, etc.
+                                                  priority: low, medium (default), high
   python reminders.py sounds                      List all available sounds
   python reminders.py list [category]             List all reminders (or filter by category)
   python reminders.py edit <number> <field> <value>  Edit a reminder field (name, time, repeat, category, sound)
@@ -324,7 +334,8 @@ def main():
         repeat = args[3] if len(args) > 3 else "daily"
         category = args[4] if len(args) > 4 else "general"
         sound = args[5] if len(args) > 5 else "Glass"
-        cmd_add(args[1], args[2], repeat, category, sound)
+        priority = args[6] if len(args) > 6 else "medium"
+        cmd_add(args[1], args[2], repeat, category, sound, priority)
 
     elif command == "list":
         category = args[1] if len(args) > 1 else None
